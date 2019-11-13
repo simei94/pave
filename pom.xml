@@ -68,6 +68,18 @@
 		</dependency>
 
 		<dependency>
+			<groupId>org.matsim.contrib</groupId>
+			<artifactId>drt</artifactId>
+			<version>${matsim.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.matsim</groupId>
+					<artifactId>matsim-examples</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
 			<!-- Include the JUnit testing library. Not transitive. -->
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
