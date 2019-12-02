@@ -1,7 +1,6 @@
 package org.matsim.drt;
 
 import org.matsim.contrib.drt.optimizer.VehicleData;
-import org.matsim.contrib.drt.optimizer.insertion.ReservationDecision;
 import org.matsim.contrib.drt.passenger.DrtRequest;
 import org.matsim.contrib.drt.schedule.DrtStopTask;
 import org.matsim.contrib.dvrp.fleet.DvrpVehicle;
@@ -29,7 +28,7 @@ public class ReservingVehicleData extends VehicleData {
         if(task.getStatus().equals(Task.TaskStatus.PLANNED) && task instanceof DrtStopTask){
             DrtStopTask drtStopTask = (DrtStopTask) task;
             for (DrtRequest drtRequest : drtStopTask.getDropoffRequests().values()) {
-                if(reservationDecision.isReservationRequested(drtRequest)){
+                if(drtRequest instanceof DrtReservationRequest){
                     entries.remove(vehicle);
                     return;
                 }

@@ -59,11 +59,11 @@ public class ReservingRequestCreator implements PassengerRequestCreator {
                     new DrtRequestSubmittedEvent(timer.getTimeOfDay(), mode, id, passenger.getId(), fromLink.getId(),
                             toLink.getId(), drtRoute.getDirectRideTime(), drtRoute.getDistance()));
 
-            passenger.get
-            double reservationValidity =
+            // TODO: get the reservation validity time period. For instance, actStart time of first act after the end of the current sequence of act -> drt trip
+            double reservationValidity = Double.NEGATIVE_INFINITY;
 
             return new DrtReservationRequest(id, passenger.getId(), mode, fromLink, toLink, departureTime, latestDepartureTime,
-                    latestArrivalTime, submissionTime);
+                    latestArrivalTime, submissionTime, reservationValidity);
 
         } else{
             return delegate.createRequest(id, passenger, fromLink, toLink, departureTime, submissionTime);

@@ -13,7 +13,6 @@ import org.matsim.contrib.dvrp.fleet.Fleet;
 import org.matsim.contrib.dvrp.passenger.PassengerRequestAcceptedEvent;
 import org.matsim.contrib.dvrp.passenger.PassengerRequestRejectedEvent;
 import org.matsim.contrib.dvrp.passenger.PassengerRequestScheduledEvent;
-import org.matsim.contrib.dvrp.run.DvrpConfigGroup;
 import org.matsim.core.api.experimental.events.EventsManager;
 import org.matsim.core.mobsim.framework.MobsimTimer;
 import org.matsim.core.mobsim.framework.events.MobsimBeforeCleanupEvent;
@@ -21,11 +20,11 @@ import org.matsim.core.mobsim.framework.listeners.MobsimBeforeCleanupListener;
 
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class ReservedVehiclePoolRequestInserter implements UnplannedRequestInserter, MobsimBeforeCleanupListener {
+class ReservedVehiclePoolRequestInserter implements UnplannedRequestInserter, MobsimBeforeCleanupListener {
     private static final Logger log = Logger.getLogger(DefaultUnplannedRequestInserter.class);
-    public static final String NO_INSERTION_FOUND_CAUSE = "no_insertion_found";
+    static final String NO_INSERTION_FOUND_CAUSE = "no_insertion_found";
 
     private final DrtConfigGroup drtCfg;
     private final Fleet fleet;
@@ -68,35 +67,52 @@ public class ReservedVehiclePoolRequestInserter implements UnplannedRequestInser
             return;
         }
 
-        Set<DrtRequest> reservationRequests = unplannedRequests.stream().filter(req  -> req instanceof DrtReservationRequest).collect(Collectors.toSet());
+        Set<DrtReservationRequest> reservationRequests = new HashSet<>();
+        unplannedRequests.stream()
+                .filter(req  -> req instanceof DrtReservationRequest)
+                .forEach(req -> reservationRequests.add((DrtReservationRequest) req));
         unplannedRequests.removeAll(reservationRequests);
 
         //handle non-reserving requests first. this means, priority remains on those requests, that do not want to block the vehicle for a longer period.
         //reservation requests only can be assigned to vehicles which are idle after handling non-reserving requests
-        handleRequests(unplannedRequests, false);
-        handleRequests(reservationRequests, true);
-
+        handleConventionalRequests(unplannedRequests);
+        handleReservationRequests(reservationRequests);
     }
 
-    private void handleRequests(Collection<DrtRequest> unplannedRequests, boolean isHandlingReservationRequests) {
+    private void handleConventionalRequests(Collection<DrtRequest> unplannedRequests) {
         //exclude reserved vehicles
         VehicleData vData = new VehicleData(mobsimTimer.getTimeOfDay(), fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.values().contains(v)),
                 vehicleDataEntryFactory, forkJoinPool);
-
         Iterator<DrtRequest> reqIter = unplannedRequests.iterator();
         while (reqIter.hasNext()) {
             DrtRequest req = reqIter.next();
-            DvrpVehicle assignedVehicle = this.reservedVehicles.get(req.getPassengerId());
-            insertionScheduler.scheduleRequest(vehicleDataEntryFactory.create(assignedVehicle,mobsimTimer.getTimeOfDay()),req,);
-
-
-            DvrpVehicle assignedVehicle = tryToAssignAndReturnVehicle(vData, reqIter);
-            if(assignedVehicle != null && isHandlingReservationRequests){
-                this.reservedVehicles.add(assignedVehicle);
-            }
+            tryToAssignAndReturnVehicle(vData,req);
             reqIter.remove();
         }
     }
+
+    private void handleReservationRequests(Collection<DrtReservationRequest> unplannedReservationRequests){
+        VehicleData vData = new ReservingVehicleData(mobsimTimer.getTimeOfDay(), fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.values().contains(v)),
+                vehicleDataEntryFactory, forkJoinPool);
+        for (DrtReservationRequest unplannedReservationRequest : unplannedReservationRequests) {
+            if(this.reservedVehicles.containsKey(unplannedReservationRequest.getPassengerId())){
+                DvrpVehicle assignedVehicle = this.reservedVehicles.get(unplannedReservationRequest.getPassengerId());
+                //this is a horrible hack: we create a stream with only one vehicle in it.
+                //need this  because the insertionScheduler only takes insertionWithPathData and i yet do not know how to create this..
+                VehicleData vehicleDataWithOneVehicle = new ReservingVehicleData(mobsimTimer.getTimeOfDay(), Stream.of(assignedVehicle), vehicleDataEntryFactory, forkJoinPool);
+                if (tryToAssignAndReturnVehicle(vehicleDataWithOneVehicle, unplannedReservationRequest) == null){
+                    throw new RuntimeException("there was a registration for vehicle " + assignedVehicle
+                            + " but somehow, the request of " + unplannedReservationRequest.getPassengerId()
+                            + " could not be inserted");
+                }
+            } else{
+                //also not nice. we end up creating vehicle data lots of times per time step instead of once...
+                DvrpVehicle vehicle = tryToAssignAndReturnVehicle(vData, unplannedReservationRequest);
+                if(vehicle != null) this.reservedVehicles.put(unplannedReservationRequest.getPassengerId(), vehicle);
+            }
+        }
+    }
+
 
     /**
      *
@@ -111,14 +127,12 @@ public class ReservedVehiclePoolRequestInserter implements UnplannedRequestInser
             eventsManager.processEvent(
                     new PassengerRequestRejectedEvent(mobsimTimer.getTimeOfDay(), drtCfg.getMode(), req.getId(),
                             req.getPassengerId(), NO_INSERTION_FOUND_CAUSE));
-            if (drtCfg.isPrintDetailedWarnings()) {
-                log.warn("No insertion found for drt request "
-                        + req
-                        + " from passenger id="
-                        + req.getPassengerId()
-                        + " fromLinkId="
-                        + req.getFromLink().getId());
-            }
+            log.warn("No insertion found for drt request "
+                    + req
+                    + " from passenger id="
+                    + req.getPassengerId()
+                    + " fromLinkId="
+                    + req.getFromLink().getId());
             return null;
         } else {
             eventsManager.processEvent(
