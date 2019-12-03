@@ -11,12 +11,12 @@ import javax.inject.Inject;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 
-public class ReservingVehicleData extends VehicleData {
+final class ReservingVehicleData extends VehicleData {
 
     @Inject
     private ReservationDecision reservationDecision;
 
-    public ReservingVehicleData(double currentTime, Stream<? extends DvrpVehicle> vehicles, EntryFactory entryFactory, ForkJoinPool forkJoinPool) {
+    ReservingVehicleData(double currentTime, Stream<? extends DvrpVehicle> vehicles, EntryFactory entryFactory, ForkJoinPool forkJoinPool) {
         super(currentTime, vehicles, entryFactory, forkJoinPool);
     }
 
