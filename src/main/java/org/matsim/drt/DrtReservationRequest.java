@@ -6,7 +6,7 @@ import org.matsim.api.core.v01.population.Person;
 import org.matsim.contrib.drt.passenger.DrtRequest;
 import org.matsim.contrib.dvrp.optimizer.Request;
 
-class DrtReservationRequest extends DrtRequest {
+final class DrtReservationRequest extends DrtRequest {
     private final double endOfReservationValidity;
 
     DrtReservationRequest(Id<Request> id, Id<Person> passengerId, String mode, Link fromLink, Link toLink, double earliestStartTime, double latestStartTime, double latestArrivalTime, double submissionTime, double endOfReservationValidity) {

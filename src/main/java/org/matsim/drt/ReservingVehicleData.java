@@ -13,9 +13,6 @@ import java.util.stream.Stream;
 
 final class ReservingVehicleData extends VehicleData {
 
-    @Inject
-    private ReservationDecision reservationDecision;
-
     ReservingVehicleData(double currentTime, Stream<? extends DvrpVehicle> vehicles, EntryFactory entryFactory, ForkJoinPool forkJoinPool) {
         super(currentTime, vehicles, entryFactory, forkJoinPool);
     }
@@ -29,7 +26,7 @@ final class ReservingVehicleData extends VehicleData {
             DrtStopTask drtStopTask = (DrtStopTask) task;
             for (DrtRequest drtRequest : drtStopTask.getDropoffRequests().values()) {
                 if(drtRequest instanceof DrtReservationRequest){
-                    entries.remove(vehicle);
+                    entries.remove(vehicle.getId());
                     return;
                 }
             }
