@@ -39,7 +39,7 @@ class ReservedVehiclePoolRequestInserter implements UnplannedRequestInserter, Mo
     private Map<Id<Person>,DvrpVehicle> reservedVehicles = new HashMap<>();
     private ReservationDecision reservationDecision;
 
-    public ReservedVehiclePoolRequestInserter(DrtConfigGroup drtCfg, Fleet fleet, MobsimTimer mobsimTimer,
+    ReservedVehiclePoolRequestInserter(DrtConfigGroup drtCfg, Fleet fleet, MobsimTimer mobsimTimer,
                                               EventsManager eventsManager, RequestInsertionScheduler insertionScheduler,
                                               VehicleData.EntryFactory vehicleDataEntryFactory, PrecalculablePathDataProvider pathDataProvider,
                                               InsertionCostCalculator.PenaltyCalculator penaltyCalculator) {

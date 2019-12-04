@@ -16,7 +16,7 @@ import org.matsim.core.mobsim.framework.MobsimPassengerAgent;
 import org.matsim.core.mobsim.framework.MobsimTimer;
 import org.matsim.core.mobsim.framework.PlanAgent;
 
-public class ReservingRequestCreator implements PassengerRequestCreator {
+class ReservingRequestCreator implements PassengerRequestCreator {
     private static final Logger log = Logger.getLogger(ReservingRequestCreator.class);
     private final String mode;
     private final EventsManager eventsManager;
@@ -25,7 +25,7 @@ public class ReservingRequestCreator implements PassengerRequestCreator {
     DrtRequestCreator delegate;
     private ReservationDecision reservationDecision;
 
-    public ReservingRequestCreator(String mode, EventsManager eventsManager, MobsimTimer timer) {
+    ReservingRequestCreator(String mode, EventsManager eventsManager, MobsimTimer timer) {
         this.delegate = new DrtRequestCreator(mode,eventsManager,timer);
         this.mode = mode;
         this.eventsManager = eventsManager;
