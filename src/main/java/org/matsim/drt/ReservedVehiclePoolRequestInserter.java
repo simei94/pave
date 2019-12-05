@@ -56,7 +56,6 @@ final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInsert
         forkJoinPool = new ForkJoinPool(drtCfg.getNumberOfThreads());
         insertionProblem = new ParallelMultiVehicleInsertionProblem(pathDataProvider, drtCfg, mobsimTimer, forkJoinPool,
                 penaltyCalculator);
-        insertionScheduler.initSchedules();
     }
 
     @Override
