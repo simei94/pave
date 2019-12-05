@@ -73,12 +73,17 @@ final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInsert
         unplannedRequests.stream()
                 .filter(req  -> req instanceof DrtReservationRequest)
                 .forEach(req -> reservationRequests.add((DrtReservationRequest) req));
-        unplannedRequests.removeAll(reservationRequests);
+
+        Set<DrtRequest> conventionalRequests = new HashSet<>();
+        conventionalRequests.addAll(unplannedRequests);
+        conventionalRequests.removeAll(reservationRequests);
 
         //handle non-reserving requests first. this means, priority remains on those requests, that do not want to block the vehicle for a longer period.
         //reservation requests only can be assigned to vehicles which are idle after handling non-reserving requests
         handleConventionalRequests(unplannedRequests);
+        unplannedRequests.removeAll(reservationRequests);
         handleReservationRequests(reservationRequests);
+        unplannedRequests.removeAll(reservationRequests);
     }
 
     private void handleConventionalRequests(Collection<DrtRequest> unplannedRequests) {
@@ -97,7 +102,9 @@ final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInsert
         VehicleData vData = new ReservingVehicleData(mobsimTimer.getTimeOfDay(),
                 fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.values().contains(v) ).filter(scheduleInquiry::isIdle),
                 vehicleDataEntryFactory, forkJoinPool);
-        for (DrtReservationRequest unplannedReservationRequest : unplannedReservationRequests) {
+        Iterator<DrtReservationRequest> reqIter = unplannedReservationRequests.iterator();
+        while(reqIter.hasNext()){
+            DrtReservationRequest unplannedReservationRequest = reqIter.next();
             if(this.reservedVehicles.containsKey(unplannedReservationRequest.getPassengerId())){
                 DvrpVehicle assignedVehicle = this.reservedVehicles.get(unplannedReservationRequest.getPassengerId());
                 //this is a horrible hack: we create a stream with only one vehicle in it.
@@ -112,6 +119,7 @@ final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInsert
                 DvrpVehicle vehicle = tryToAssignAndReturnVehicle(vData, unplannedReservationRequest);
                 if(vehicle != null) this.reservedVehicles.put(unplannedReservationRequest.getPassengerId(), vehicle);
             }
+            reqIter.remove();
         }
     }
 
