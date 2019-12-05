@@ -129,7 +129,7 @@ public class RunReservingRequestEquilScenario {
             plan.addLeg(popFactory.createLeg(TransportMode.drt));
 
             Activity home2 = popFactory.createActivityFromLinkId("home", home.getLinkId());
-            plan.addActivity(home);
+            plan.addActivity(home2);
 
             person.addPlan(plan);
             scenario.getPopulation().addPerson(person);
