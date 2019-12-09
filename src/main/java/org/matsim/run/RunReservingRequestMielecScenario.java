@@ -122,14 +122,12 @@ public class RunReservingRequestMielecScenario {
             plan.addActivity(home);
 
             Leg drtLeg = popFactory.createLeg(TransportMode.drt);
-            drtLeg.getAttributes().putAttribute(DrtReservationRequest.RESERVATION_ATTRIBUTE_NAME, 16*3600);
             plan.addLeg(drtLeg);
             Activity work = popFactory.createActivityFromLinkId("work", linkIds.get(rnd.nextInt(linkIds.size())));
             work.setEndTime(15*3600);
             plan.addActivity(work);
 
             drtLeg = popFactory.createLeg(TransportMode.drt);
-            drtLeg.getAttributes().putAttribute(DrtReservationRequest.RESERVATION_ATTRIBUTE_NAME, Double.NEGATIVE_INFINITY);
             plan.addLeg(drtLeg);
 
             Activity home2 = popFactory.createActivityFromLinkId("home", home.getLinkId());
