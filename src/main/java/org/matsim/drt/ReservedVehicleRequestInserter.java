@@ -24,7 +24,7 @@ import java.util.*;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 
-final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInserter, MobsimBeforeCleanupListener {
+final class ReservedVehicleRequestInserter implements UnplannedRequestInserter, MobsimBeforeCleanupListener {
     private static final Logger log = Logger.getLogger(DefaultUnplannedRequestInserter.class);
     static final String NO_INSERTION_FOUND_CAUSE = "no_insertion_found";
 
@@ -41,10 +41,10 @@ final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInsert
 
     private Map<DrtReservationRequest,DvrpVehicle> reservedVehicles;
 
-    ReservedVehiclePoolRequestInserter(DrtConfigGroup drtCfg, Fleet fleet, MobsimTimer mobsimTimer,
-                                       EventsManager eventsManager, RequestInsertionScheduler insertionScheduler,
-                                       VehicleData.EntryFactory vehicleDataEntryFactory, PrecalculablePathDataProvider pathDataProvider,
-                                       InsertionCostCalculator.PenaltyCalculator penaltyCalculator, DrtScheduleInquiry scheduleInquiry) {
+    ReservedVehicleRequestInserter(DrtConfigGroup drtCfg, Fleet fleet, MobsimTimer mobsimTimer,
+                                   EventsManager eventsManager, RequestInsertionScheduler insertionScheduler,
+                                   VehicleData.EntryFactory vehicleDataEntryFactory, PrecalculablePathDataProvider pathDataProvider,
+                                   InsertionCostCalculator.PenaltyCalculator penaltyCalculator, DrtScheduleInquiry scheduleInquiry) {
         this.drtCfg = drtCfg;
         this.fleet = fleet;
         this.mobsimTimer = mobsimTimer;

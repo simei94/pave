@@ -27,15 +27,15 @@ public class ReservingRequestsDvrpModeQSimModule extends AbstractDvrpModeQSimMod
     protected void configureQSim() {
         //override the request inserter
 
-        addModalComponent(ReservedVehiclePoolRequestInserter.class, modalProvider(
-                getter -> new ReservedVehiclePoolRequestInserter(drtCfg, getter.getModal(Fleet.class),
+        addModalComponent(ReservedVehicleRequestInserter.class, modalProvider(
+                getter -> new ReservedVehicleRequestInserter(drtCfg, getter.getModal(Fleet.class),
                         getter.get(MobsimTimer.class), getter.get(EventsManager.class),
                         getter.getModal(RequestInsertionScheduler.class),
                         getter.getModal(VehicleData.EntryFactory.class),
                         getter.getModal(PrecalculablePathDataProvider.class),
                         getter.getModal(InsertionCostCalculator.PenaltyCalculator.class),
                         getter.getModal(DrtScheduleInquiry.class))));
-        bindModal(UnplannedRequestInserter.class).to(modalKey(ReservedVehiclePoolRequestInserter.class));
+        bindModal(UnplannedRequestInserter.class).to(modalKey(ReservedVehicleRequestInserter.class));
 
         bind(ReservationDecision.class).toInstance(new DefaultReservationDecision());
 
