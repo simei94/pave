@@ -3,7 +3,10 @@ package org.matsim.drt;
 import org.apache.log4j.Logger;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
+import org.matsim.api.core.v01.population.Activity;
 import org.matsim.api.core.v01.population.Leg;
+import org.matsim.api.core.v01.population.Plan;
+import org.matsim.api.core.v01.population.PlanElement;
 import org.matsim.contrib.drt.passenger.DrtRequest;
 import org.matsim.contrib.drt.passenger.DrtRequestCreator;
 import org.matsim.contrib.drt.passenger.events.DrtRequestSubmittedEvent;
@@ -15,6 +18,8 @@ import org.matsim.core.api.experimental.events.EventsManager;
 import org.matsim.core.mobsim.framework.MobsimPassengerAgent;
 import org.matsim.core.mobsim.framework.MobsimTimer;
 import org.matsim.core.mobsim.framework.PlanAgent;
+
+import java.util.List;
 
 final class ReservingRequestCreator implements PassengerRequestCreator {
     private static final Logger log = Logger.getLogger(ReservingRequestCreator.class);
@@ -35,12 +40,12 @@ final class ReservingRequestCreator implements PassengerRequestCreator {
 
     @Override
     public PassengerRequest createRequest(Id<Request> id, MobsimPassengerAgent passenger, Link fromLink, Link toLink, double departureTime, double submissionTime) {
-        if(reservationDecision.isReservationRequested(passenger)){
+        Plan plan = ((PlanAgent) passenger).getCurrentPlan();
+        if( reservationDecision.isReservationRequested(plan) ){
 
             //FIXME this will not work if pre-booking is allowed in DRT
             Leg leg = (Leg)((PlanAgent)passenger).getCurrentPlanElement();
 
-//		((PlanAgent) passenger).getCurrentPlan().getPlanElements().
             DrtRoute drtRoute = (DrtRoute)leg.getRoute();
             double latestDepartureTime = departureTime + drtRoute.getMaxWaitTime();
             double latestArrivalTime = departureTime + drtRoute.getTravelTime();
@@ -60,8 +65,7 @@ final class ReservingRequestCreator implements PassengerRequestCreator {
                     new DrtRequestSubmittedEvent(timer.getTimeOfDay(), mode, id, passenger.getId(), fromLink.getId(),
                             toLink.getId(), drtRoute.getDirectRideTime(), drtRoute.getDistance()));
 
-            // TODO: get the reservation validity time period. For instance, actStart time of first act after the end of the current sequence of act -> drt trip
-            double reservationValidity = Double.NEGATIVE_INFINITY;
+            double reservationValidity = reservationDecision.determineReservationValidityEnd(plan);
 
             return new DrtReservationRequest(id, passenger.getId(), mode, fromLink, toLink, departureTime, latestDepartureTime,
                     latestArrivalTime, submissionTime, reservationValidity);

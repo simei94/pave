@@ -39,7 +39,7 @@ final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInsert
     private final ParallelMultiVehicleInsertionProblem insertionProblem;
     private final DrtScheduleInquiry scheduleInquiry;
 
-    private Map<Id<Person>,DvrpVehicle> reservedVehicles = new HashMap<>();
+    private Map<DrtReservationRequest,DvrpVehicle> reservedVehicles;
 
     ReservedVehiclePoolRequestInserter(DrtConfigGroup drtCfg, Fleet fleet, MobsimTimer mobsimTimer,
                                        EventsManager eventsManager, RequestInsertionScheduler insertionScheduler,
@@ -53,9 +53,12 @@ final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInsert
         this.vehicleDataEntryFactory = vehicleDataEntryFactory;
         this.scheduleInquiry = scheduleInquiry;
 
-        forkJoinPool = new ForkJoinPool(drtCfg.getNumberOfThreads());
-        insertionProblem = new ParallelMultiVehicleInsertionProblem(pathDataProvider, drtCfg, mobsimTimer, forkJoinPool,
+        this.forkJoinPool = new ForkJoinPool(drtCfg.getNumberOfThreads());
+        this.insertionProblem = new ParallelMultiVehicleInsertionProblem(pathDataProvider, drtCfg, mobsimTimer, forkJoinPool,
                 penaltyCalculator);
+
+        //sort Reservations by their validity end time stamps
+        this.reservedVehicles = new TreeMap<>(Comparator.comparingDouble(DrtReservationRequest::getEndOfReservationValidity));
     }
 
     @Override
@@ -69,44 +72,49 @@ final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInsert
             return;
         }
 
+        //check for reservation validity end time stamps and get all vehicles back for which reservation is expired.
+        unReserveVehicles();
+
         Set<DrtReservationRequest> reservationRequests = new HashSet<>();
         unplannedRequests.stream()
                 .filter(req  -> req instanceof DrtReservationRequest)
                 .forEach(req -> reservationRequests.add((DrtReservationRequest) req));
 
-        Set<DrtRequest> conventionalRequests = new HashSet<>();
-        conventionalRequests.addAll(unplannedRequests);
+        Set<DrtRequest> conventionalRequests = new HashSet<>(unplannedRequests);
         conventionalRequests.removeAll(reservationRequests);
 
         //handle non-reserving requests first. this means, priority remains on those requests, that do not want to block the vehicle for a longer period.
         //reservation requests only can be assigned to vehicles which are idle after handling non-reserving requests
-        handleConventionalRequests(unplannedRequests);
-        unplannedRequests.removeAll(reservationRequests);
+        handleConventionalRequests(conventionalRequests);
+        unplannedRequests.removeAll(conventionalRequests); //maybe better: remove handled requests one by one from the unplannedRequests (inside the handling method) ??
         handleReservationRequests(reservationRequests);
-        unplannedRequests.removeAll(reservationRequests);
+        unplannedRequests.removeAll(reservationRequests); //maybe better: remove handled requests one by one from the unplannedRequests (inside the handling method) ??
+    }
+
+    private void unReserveVehicles(){
+        if(reservedVehicles.isEmpty()) return;
+        List<DrtReservationRequest> activeReservations = new ArrayList<>(reservedVehicles.keySet());
+        for (DrtReservationRequest activeReservation : activeReservations) {
+            if(activeReservation.getEndOfReservationValidity() <= mobsimTimer.getTimeOfDay()) this.reservedVehicles.remove(activeReservation);
+            else break;
+        }
     }
 
     private void handleConventionalRequests(Collection<DrtRequest> unplannedRequests) {
         //exclude reserved vehicles
-        VehicleData vData = new VehicleData(mobsimTimer.getTimeOfDay(), fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.values().contains(v)),
+        VehicleData vData = new VehicleData(mobsimTimer.getTimeOfDay(), fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.containsValue(v)),
                 vehicleDataEntryFactory, forkJoinPool);
-        Iterator<DrtRequest> reqIter = unplannedRequests.iterator();
-        while (reqIter.hasNext()) {
-            DrtRequest req = reqIter.next();
-            tryToAssignAndReturnVehicle(vData,req);
-            reqIter.remove();
+        for (DrtRequest unplannedRequest : unplannedRequests) {
+            tryToAssignAndReturnVehicle(vData, unplannedRequest);
         }
     }
 
     private void handleReservationRequests(Collection<DrtReservationRequest> unplannedReservationRequests){
-        VehicleData vData = new ReservingVehicleData(mobsimTimer.getTimeOfDay(),
-                fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.values().contains(v) ).filter(scheduleInquiry::isIdle),
-                vehicleDataEntryFactory, forkJoinPool);
-        Iterator<DrtReservationRequest> reqIter = unplannedReservationRequests.iterator();
-        while(reqIter.hasNext()){
-            DrtReservationRequest unplannedReservationRequest = reqIter.next();
-            if(this.reservedVehicles.containsKey(unplannedReservationRequest.getPassengerId())){
-                DvrpVehicle assignedVehicle = this.reservedVehicles.get(unplannedReservationRequest.getPassengerId());
+        for(DrtReservationRequest unplannedReservationRequest : unplannedReservationRequests){
+            //check if passenger has an active reservation
+            DrtReservationRequest reservingRequest = this.reservedVehicles.keySet().stream().filter(req -> req.getPassengerId().equals(unplannedReservationRequest.getPassengerId())).findAny().orElse(null);
+            if(reservingRequest != null){
+                DvrpVehicle assignedVehicle = this.reservedVehicles.get(reservingRequest);
                 //this is a horrible hack: we create a stream with only one vehicle in it.
                 //need this  because the insertionScheduler only takes insertionWithPathData and i yet do not know how to create this..
                 VehicleData vehicleDataWithOneVehicle = new ReservingVehicleData(mobsimTimer.getTimeOfDay(), Stream.of(assignedVehicle), vehicleDataEntryFactory, forkJoinPool);
@@ -116,10 +124,12 @@ final class ReservedVehiclePoolRequestInserter implements UnplannedRequestInsert
                             + " could not be inserted");
                 }
             } else{
+                VehicleData vData = new ReservingVehicleData(mobsimTimer.getTimeOfDay(),
+                        fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.containsValue(v) ).filter(scheduleInquiry::isIdle),
+                        vehicleDataEntryFactory, forkJoinPool);
                 DvrpVehicle vehicle = tryToAssignAndReturnVehicle(vData, unplannedReservationRequest);
-                if(vehicle != null) this.reservedVehicles.put(unplannedReservationRequest.getPassengerId(), vehicle);
+                if(vehicle != null) this.reservedVehicles.put(unplannedReservationRequest, vehicle);
             }
-            reqIter.remove();
         }
     }
 

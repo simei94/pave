@@ -4,10 +4,7 @@ import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
 import org.matsim.api.core.v01.network.Link;
-import org.matsim.api.core.v01.population.Activity;
-import org.matsim.api.core.v01.population.Person;
-import org.matsim.api.core.v01.population.Plan;
-import org.matsim.api.core.v01.population.PopulationFactory;
+import org.matsim.api.core.v01.population.*;
 import org.matsim.contrib.drt.run.DrtConfigGroup;
 import org.matsim.contrib.drt.run.DrtControlerCreator;
 import org.matsim.contrib.drt.run.MultiModeDrtConfigGroup;
@@ -24,11 +21,13 @@ import org.matsim.core.controler.Controler;
 import org.matsim.core.gbl.MatsimRandom;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.io.IOUtils;
+import org.matsim.drt.DrtReservationRequest;
 import org.matsim.drt.ReservingRequestsDvrpModeQSimModule;
 import org.matsim.examples.ExamplesUtils;
 import org.matsim.vis.otfvis.OTFVisConfigGroup;
 
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -59,6 +58,7 @@ public class RunReservingRequestEquilScenario {
         drtCfg.setNumberOfThreads(threads);
         multiModeDrtConfigGroup.addParameterSet(drtCfg);
         config.qsim().setSimStarttimeInterpretation(QSimConfigGroup.StarttimeInterpretation.onlyUseStarttime);
+
 
         addActParameters(config);
 
@@ -113,7 +113,7 @@ public class RunReservingRequestEquilScenario {
         for (int i = 0; i < 10; i++) {
             Person person = popFactory.createPerson(Id.createPersonId("freight_" + i));
 
-            List<Id<Link>> linkIds = scenario.getNetwork().getLinks().keySet().stream().collect(Collectors.toList());
+            List<Id<Link>> linkIds = new ArrayList<>(scenario.getNetwork().getLinks().keySet());
 
             Random rnd =  MatsimRandom.getLocalInstance();
             Plan plan = popFactory.createPlan();
@@ -121,12 +121,16 @@ public class RunReservingRequestEquilScenario {
             home.setEndTime(10*3600 + i * 1800);
             plan.addActivity(home);
 
-            plan.addLeg(popFactory.createLeg(TransportMode.drt));
+            Leg drtLeg = popFactory.createLeg(TransportMode.drt);
+            drtLeg.getAttributes().putAttribute(DrtReservationRequest.RESERVATION_ATTRIBUTE_NAME, 16*3600);
+            plan.addLeg(drtLeg);
             Activity work = popFactory.createActivityFromLinkId("work", linkIds.get(rnd.nextInt(linkIds.size())));
             work.setEndTime(15*3600);
             plan.addActivity(work);
 
-            plan.addLeg(popFactory.createLeg(TransportMode.drt));
+            drtLeg = popFactory.createLeg(TransportMode.drt);
+            drtLeg.getAttributes().putAttribute(DrtReservationRequest.RESERVATION_ATTRIBUTE_NAME, Double.NEGATIVE_INFINITY);
+            plan.addLeg(drtLeg);
 
             Activity home2 = popFactory.createActivityFromLinkId("home", home.getLinkId());
             plan.addActivity(home2);

@@ -1,9 +1,10 @@
 package org.matsim.drt;
 
-import org.matsim.contrib.drt.passenger.DrtRequest;
-import org.matsim.core.mobsim.framework.MobsimPassengerAgent;
+import org.matsim.api.core.v01.population.Plan;
 
 interface ReservationDecision {
 
-    boolean isReservationRequested(MobsimPassengerAgent requestingAgent);
+    boolean isReservationRequested(Plan plan);
+
+    double determineReservationValidityEnd(Plan plan);
 }
