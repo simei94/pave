@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-public class RunReservingRequestEquilScenario {
+public class RunReservingRequestMielecScenario {
 
     private static boolean otfvis = false;
 
