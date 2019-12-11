@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import org.matsim.contrib.drt.optimizer.QSimScopeForkJoinPoolHolder;
 import org.matsim.contrib.drt.optimizer.VehicleData;
+import org.matsim.contrib.drt.optimizer.VehicleDataEntryFactoryImpl;
 import org.matsim.contrib.drt.optimizer.insertion.InsertionCostCalculator;
 import org.matsim.contrib.drt.optimizer.insertion.PrecalculablePathDataProvider;
 import org.matsim.contrib.drt.optimizer.insertion.UnplannedRequestInserter;
@@ -40,6 +41,7 @@ public class ReservingRequestsDvrpModeQSimModule extends AbstractDvrpModeQSimMod
                         getter.getModal(DrtScheduleInquiry.class),
                         getter.getModal(QSimScopeForkJoinPoolHolder.class))));
 
+        bindModal(VehicleData.EntryFactory.class).toInstance(new ReservingVehicleDataEntryFactory(drtCfg));
         bind(ReservationDecision.class).toInstance(new DefaultReservationDecision());
 
         bindModal(PassengerRequestCreator.class).toProvider(new Provider<PassengerRequestCreator>() {

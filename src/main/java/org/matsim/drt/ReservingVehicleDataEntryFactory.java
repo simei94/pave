@@ -7,6 +7,7 @@ import org.matsim.contrib.drt.passenger.DrtRequest;
 import org.matsim.contrib.drt.run.DrtConfigGroup;
 import org.matsim.contrib.drt.schedule.DrtStopTask;
 import org.matsim.contrib.dvrp.fleet.DvrpVehicle;
+import org.matsim.contrib.dvrp.schedule.Schedule;
 import org.matsim.contrib.dvrp.schedule.Schedules;
 import org.matsim.contrib.dvrp.schedule.Task;
 import org.matsim.contrib.edrt.optimizer.EDrtVehicleDataEntryFactory;
@@ -26,13 +27,15 @@ class ReservingVehicleDataEntryFactory  implements VehicleData.EntryFactory {
     public VehicleData.Entry create(DvrpVehicle vehicle, double currentTime) {
         if(!delegate.isEligibleForRequestInsertion(vehicle, currentTime)) return null;
 
-        //if one of the requests at the last stop is a reservation dropOff, exclude this vehicle
-        Task task = Schedules.getNextToLastTask(vehicle.getSchedule());
-        if(task.getStatus().equals(Task.TaskStatus.PLANNED) && task instanceof DrtStopTask){
-            DrtStopTask drtStopTask = (DrtStopTask) task;
-            for (DrtRequest drtRequest : drtStopTask.getDropoffRequests().values()) {
-                if(drtRequest instanceof DrtReservationRequest){
-                    return null; //vehicle will be removed from entry set of VehicleData
+        if(vehicle.getSchedule().getStatus() == Schedule.ScheduleStatus.STARTED && vehicle.getSchedule().getTasks().size() > 1){
+            //if one of the requests at the last stop is a reservation dropOff, exclude this vehicle
+            Task task = Schedules.getNextToLastTask(vehicle.getSchedule());
+            if(task.getStatus().equals(Task.TaskStatus.PLANNED) && task instanceof DrtStopTask){
+                DrtStopTask drtStopTask = (DrtStopTask) task;
+                for (DrtRequest drtRequest : drtStopTask.getDropoffRequests().values()) {
+                    if(drtRequest instanceof DrtReservationRequest){
+                        return null; //vehicle will be removed from entry set of VehicleData
+                    }
                 }
             }
         }
