@@ -13,6 +13,12 @@ final class DefaultReservationDecision implements ReservationDecision {
         return plan.getPerson().getId().toString().contains("freight");
     }
 
+    /**
+     * retrieves the planned arrival time of the last drt leg in the given plan
+     *
+     * @param plan
+     * @return
+     */
     @Override
     public double determineReservationValidityEnd(Plan plan) {
         if(! isReservationRequested(plan) ) throw new IllegalStateException();
