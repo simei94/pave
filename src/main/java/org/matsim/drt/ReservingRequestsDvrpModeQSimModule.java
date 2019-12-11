@@ -2,6 +2,7 @@ package org.matsim.drt;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import org.matsim.contrib.drt.optimizer.QSimScopeForkJoinPoolHolder;
 import org.matsim.contrib.drt.optimizer.VehicleData;
 import org.matsim.contrib.drt.optimizer.insertion.InsertionCostCalculator;
 import org.matsim.contrib.drt.optimizer.insertion.PrecalculablePathDataProvider;
@@ -27,15 +28,17 @@ public class ReservingRequestsDvrpModeQSimModule extends AbstractDvrpModeQSimMod
     protected void configureQSim() {
         //override the request inserter
 
-        addModalComponent(ReservedVehicleRequestInserter.class, modalProvider(
-                getter -> new ReservedVehicleRequestInserter(drtCfg, getter.getModal(Fleet.class),
-                        getter.get(MobsimTimer.class), getter.get(EventsManager.class),
+        bindModal(UnplannedRequestInserter.class).toProvider(modalProvider(
+                getter -> new ReservedVehicleRequestInserter(drtCfg,
+                        getter.getModal(Fleet.class),
+                        getter.get(MobsimTimer.class),
+                        getter.get(EventsManager.class),
                         getter.getModal(RequestInsertionScheduler.class),
                         getter.getModal(VehicleData.EntryFactory.class),
                         getter.getModal(PrecalculablePathDataProvider.class),
                         getter.getModal(InsertionCostCalculator.PenaltyCalculator.class),
-                        getter.getModal(DrtScheduleInquiry.class))));
-        bindModal(UnplannedRequestInserter.class).to(modalKey(ReservedVehicleRequestInserter.class));
+                        getter.getModal(DrtScheduleInquiry.class),
+                        getter.getModal(QSimScopeForkJoinPoolHolder.class))));
 
         bind(ReservationDecision.class).toInstance(new DefaultReservationDecision());
 

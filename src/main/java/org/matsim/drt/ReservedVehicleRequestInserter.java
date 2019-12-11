@@ -3,6 +3,7 @@ package org.matsim.drt;
 import org.apache.log4j.Logger;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.population.Person;
+import org.matsim.contrib.drt.optimizer.QSimScopeForkJoinPoolHolder;
 import org.matsim.contrib.drt.optimizer.VehicleData;
 import org.matsim.contrib.drt.optimizer.insertion.*;
 import org.matsim.contrib.drt.passenger.DrtRequest;
@@ -24,7 +25,7 @@ import java.util.*;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 
-final class ReservedVehicleRequestInserter implements UnplannedRequestInserter, MobsimBeforeCleanupListener {
+final class ReservedVehicleRequestInserter implements UnplannedRequestInserter {
     private static final Logger log = Logger.getLogger(DefaultUnplannedRequestInserter.class);
     static final String NO_INSERTION_FOUND_CAUSE = "no_insertion_found";
 
@@ -44,7 +45,8 @@ final class ReservedVehicleRequestInserter implements UnplannedRequestInserter, 
     ReservedVehicleRequestInserter(DrtConfigGroup drtCfg, Fleet fleet, MobsimTimer mobsimTimer,
                                    EventsManager eventsManager, RequestInsertionScheduler insertionScheduler,
                                    VehicleData.EntryFactory vehicleDataEntryFactory, PrecalculablePathDataProvider pathDataProvider,
-                                   InsertionCostCalculator.PenaltyCalculator penaltyCalculator, DrtScheduleInquiry scheduleInquiry) {
+                                   InsertionCostCalculator.PenaltyCalculator penaltyCalculator, DrtScheduleInquiry scheduleInquiry,
+                                   QSimScopeForkJoinPoolHolder forkJoinPoolHolder) {
         this.drtCfg = drtCfg;
         this.fleet = fleet;
         this.mobsimTimer = mobsimTimer;
@@ -53,17 +55,12 @@ final class ReservedVehicleRequestInserter implements UnplannedRequestInserter, 
         this.vehicleDataEntryFactory = vehicleDataEntryFactory;
         this.scheduleInquiry = scheduleInquiry;
 
-        this.forkJoinPool = new ForkJoinPool(drtCfg.getNumberOfThreads());
+        this.forkJoinPool = forkJoinPoolHolder.getPool();
         this.insertionProblem = new ParallelMultiVehicleInsertionProblem(pathDataProvider, drtCfg, mobsimTimer, forkJoinPool,
                 penaltyCalculator);
 
         //sort Reservations by their validity end time stamps
         this.reservedVehicles = new TreeMap<>(Comparator.comparingDouble(DrtReservationRequest::getEndOfReservationValidity));
-    }
-
-    @Override
-    public void notifyMobsimBeforeCleanup(@SuppressWarnings("rawtypes") MobsimBeforeCleanupEvent e) {
-        insertionProblem.shutdown();
     }
 
     @Override
@@ -102,7 +99,7 @@ final class ReservedVehicleRequestInserter implements UnplannedRequestInserter, 
 
     private void handleConventionalRequests(Collection<DrtRequest> unplannedRequests) {
         //exclude reserved vehicles
-        VehicleData vData = new VehicleData(mobsimTimer.getTimeOfDay(), fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.containsValue(v)),
+        VehicleData vData = new VehicleData(mobsimTimer.getTimeOfDay(), fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.containsValue(v)), //filter reserved vehicles
                 vehicleDataEntryFactory, forkJoinPool);
         for (DrtRequest unplannedRequest : unplannedRequests) {
             tryToAssignAndReturnVehicle(vData, unplannedRequest);
@@ -115,17 +112,16 @@ final class ReservedVehicleRequestInserter implements UnplannedRequestInserter, 
             DrtReservationRequest reservingRequest = this.reservedVehicles.keySet().stream().filter(req -> req.getPassengerId().equals(unplannedReservationRequest.getPassengerId())).findAny().orElse(null);
             if(reservingRequest != null){
                 DvrpVehicle assignedVehicle = this.reservedVehicles.get(reservingRequest);
-                //this is a horrible hack: we create a stream with only one vehicle in it.
                 //need this  because the insertionScheduler only takes insertionWithPathData and i yet do not know how to create this..
-                VehicleData vehicleDataWithOneVehicle = new ReservingVehicleData(mobsimTimer.getTimeOfDay(), Stream.of(assignedVehicle), vehicleDataEntryFactory, forkJoinPool);
+                VehicleData vehicleDataWithOneVehicle = new VehicleData(mobsimTimer.getTimeOfDay(), Stream.of(assignedVehicle), vehicleDataEntryFactory, forkJoinPool);
                 if (tryToAssignAndReturnVehicle(vehicleDataWithOneVehicle, unplannedReservationRequest) == null){
                     throw new RuntimeException("there was a registration for vehicle " + assignedVehicle
                             + " but somehow, the request of " + unplannedReservationRequest.getPassengerId()
                             + " could not be inserted");
                 }
             } else{
-                VehicleData vData = new ReservingVehicleData(mobsimTimer.getTimeOfDay(),
-                        fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.containsValue(v) ).filter(scheduleInquiry::isIdle),
+                VehicleData vData = new VehicleData(mobsimTimer.getTimeOfDay(),
+                        fleet.getVehicles().values().stream().filter(v -> ! this.reservedVehicles.containsValue(v) ).filter(scheduleInquiry::isIdle),   //only consider idle vehicles
                         vehicleDataEntryFactory, forkJoinPool);
                 DvrpVehicle vehicle = tryToAssignAndReturnVehicle(vData, unplannedReservationRequest);
                 if(vehicle != null) this.reservedVehicles.put(unplannedReservationRequest, vehicle);
