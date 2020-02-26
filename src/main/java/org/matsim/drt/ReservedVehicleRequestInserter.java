@@ -12,7 +12,6 @@ import org.matsim.contrib.drt.scheduler.DrtScheduleInquiry;
 import org.matsim.contrib.drt.scheduler.RequestInsertionScheduler;
 import org.matsim.contrib.dvrp.fleet.DvrpVehicle;
 import org.matsim.contrib.dvrp.fleet.Fleet;
-import org.matsim.contrib.dvrp.passenger.PassengerRequestAcceptedEvent;
 import org.matsim.contrib.dvrp.passenger.PassengerRequestRejectedEvent;
 import org.matsim.contrib.dvrp.passenger.PassengerRequestScheduledEvent;
 import org.matsim.contrib.dvrp.schedule.ScheduleInquiry;
@@ -151,9 +150,6 @@ final class ReservedVehicleRequestInserter implements UnplannedRequestInserter {
                     + req.getFromLink().getId());
             return null;
         } else {
-            eventsManager.processEvent(
-                    new PassengerRequestAcceptedEvent(mobsimTimer.getTimeOfDay(), drtCfg.getMode(), req.getId(),
-                            req.getPassengerId()));
             SingleVehicleInsertionProblem.BestInsertion bestInsertion = best.get();
             insertionScheduler.scheduleRequest(bestInsertion.vehicleEntry, req, bestInsertion.insertion);
 
